@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1e1e2e;
+            color: #ffffff;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: #282a36;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: #44475a;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        button {
+            background: #50fa7b;
+            color: #282a36;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #40d96e;
+        }
+
+        .bot-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #44475a;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+        }
+
+        .delete-btn {
+            background: #ff5555;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #ff3333;
+        }
+
+        #menuSettings {
+            display: none;
+            background: #282a36;
+            padding: 15px;
+            border-radius: 8px;
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            animation: dropdown 0.5s ease;
+        }
+
+        @keyframes dropdown {
+            0% {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #tokenForm {
+            display: none;
+            margin-top: 10px;
+        }
+
+        #botInfo {
+            display: none;
+        }
+
+        #contactInfo {
+            margin-top: 30px;
+            color: #bbb;
+        }
+
+        .add-bot-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .menu-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .admin-button {
+            position: absolute;
+            top: 20px;
+            left: 100px;
+        }
+
+        #adminPanel {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #adminPanel input {
+            padding: 10px;
+            width: 300px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        #adminPanel .bot-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .emergency-button {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background-color: #ff5555;
+        }
+    </style>
+</head>
+<body>
+    <button class="menu-button" onclick="toggleSettingsMenu()">เมนู</button>
+    <button class="admin-button" onclick="showAdminPanel()">แอดมิน</button>
+    <button class="emergency-button" onclick="showEmergencyModal()">ปุ่มฉุกเฉิน</button>
+    <div id="menuSettings" class="menu">
+        <button onclick="toggleStream()">เปิด/ปิด สตรีม</button>
+    </div>
+
+    <div id="emergencyModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); color: white; padding: 20px; box-sizing: border-box;">
+        <div style="max-width: 400px; margin: auto; background: #282a36; padding: 20px; border-radius: 8px;">
+            <h3>กรุณากรอกรหัสผ่านเพื่อหยุดบอททุกตัว</h3>
+            <input type="text" id="emergencyPassword" placeholder="รหัสผ่าน">
+            <button onclick="handleEmergency()">ยืนยัน</button>
+            <button onclick="closeEmergencyModal()">ยกเลิก</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <button class="add-bot-btn" onclick="showTokenForm()">เพิ่มบอท</button>
+        <div id="tokenForm">
+            <input type="text" id="serverID" placeholder="ไอดีเซิฟ" oninput="displayBotInfo()" />
+            <input type="text" id="botToken" placeholder="โทเค่นบอท" oninput="displayBotInfo()" />
+            <button onclick="startBot()">เริ่มบอท</button>
+        </div>
+        <div id="botInfo" class="hidden">
+            <p id="botStatus">สถานะ: รอคำสั่ง</p>
+            <button onclick="stopBot()">หยุดบอท</button>
+        </div>
+    </div>
+
+    <div id="contactInfo">
+        <p>คำอธิบายเพิ่มเติมหรือลิ้งค์ติดต่อที่นี่</p>
+    </div>
+
+    <script>
+      window.onload = function() {
+          updateBotDisplay();
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+          if (botList.length > 0) {
+              document.getElementById('botInfo').style.display = 'block';
+          }
+      };
+      
+      function showEmergencyModal() {
+          document.getElementById('emergencyModal').style.display = 'block';
+      }
+      
+      function closeEmergencyModal() {
+          document.getElementById('emergencyModal').style.display = 'none';
+      }
+      
+      function handleEmergency() {
+          const password = document.getElementById('emergencyPassword').value;
+          if (password === 'mastersiwakon') {
+              stopAllBots();
+              Swal.fire('สำเร็จ!', 'บอททั้งหมดถูกหยุดแล้ว!', 'success');
+              closeEmergencyModal();
+          } else {
+              Swal.fire('รหัสผ่านไม่ถูกต้อง!', '', 'error');
+          }
+      }
+      
+      function stopAllBots() {
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+          botList.forEach((bot, index) => {
+              fetch('http://localhost:5000/stop-bot', { method: 'POST' })
+                  .then(res => res.json())
+                  .then(async (data) => {
+                      if (data.success) {
+                          botList.splice(index, 1);
+                          localStorage.setItem("botList", JSON.stringify(botList));
+                          updateBotDisplay();
+                      }
+                  });
+          });
+      }
+      
+      function showTokenForm() {
+          document.getElementById('tokenForm').style.display = 'block';
+          document.getElementById('botInfo').style.display = 'none';
+      }
+      
+      async function startBot() {
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+      
+          // Check for existing bot count (limit of 5)
+          if (botList.length >= 5) {
+              await Swal.fire('จำกัดบอทแล้ว! คุณไม่สามารถเพิ่มบอทได้มากกว่า 5 ตัว');
+              return;
+          }
+      
+          const token = document.getElementById('botToken').value;
+      
+          // Check if the token is already in use
+          if (botList.includes(token)) {
+              await Swal.fire('โทเค่นนี้ถูกใช้แล้ว! กรุณาใช้โทเค่นใหม่');
+              return;
+          }
+      
+          const serverID = document.getElementById('serverID').value;
+      
+          // Start the bot and validate its status
+          fetch('http://localhost:5000/start-bot', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token, serverID })
+          })
+          .then(res => res.json())
+          .then(async (data) => {
+              if (data.success) {
+                  const botName = data.botName || "บอทไม่สามารถเชื่อมต่อได้";
+                  botList.push(botName);
+                  localStorage.setItem("botList", JSON.stringify(botList));
+                  updateBotDisplay();
+                  document.getElementById('botInfo').style.display = 'block';
+                  await Swal.fire('บอทของคุณได้ถูกเปิดใช้งานเรียบร้อยแล้ว');
+                  document.getElementById('botToken').value = "";
+                  document.getElementById('serverID').value = "";
+                  document.getElementById('tokenForm').style.display = 'none';
+              } else {
+                  await Swal.fire(data.message);
+              }
+          });
+      }
+      
+      function stopBot() {
+          fetch('http://localhost:5000/stop-bot', { method: 'POST' })
+          .then(res => res.json())
+          .then(async (data) => {
+              if (data.success) {
+                  await Swal.fire('บอทของคุณถูกหยุดเรียบร้อย');
+              } else {
+                  await Swal.fire(data.message);
+              }
+          });
+      }
+      
+      function toggleStream() {
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+          if (botList.length === 0) {
+              Swal.fire('บอทยังไม่ได้เปิด! กรุณาเริ่มบอทก่อนถึงจะเปิดสตรีมได้');
+              return;
+          }
+          fetch('http://localhost:5000/toggle-stream', { method: 'POST' })
+          .then(res => res.json())
+          .then(async (data) => {
+              if (data.success) {
+                  await Swal.fire('สถานะการสตรีมถูกเปิด/ปิดสำเร็จ');
+              }
+          });
+      }
+      
+      function toggleSettingsMenu() {
+          const menu = document.getElementById('menuSettings');
+          menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+      }
+      
+      function showAdminPanel() {
+          // ซ่อนปุ่มแอดมินหลังจากคลิก
+          const adminButton = document.querySelector('.admin-button');
+          if (adminButton) {
+              adminButton.style.display = 'none'; // ซ่อนปุ่มแอดมิน
+          }
+      
+          // สร้างแผงแอดมินและแสดงข้อมูลบอท
+          const adminPanel = document.createElement("div");
+          adminPanel.id = "adminPanel";
+          adminPanel.innerHTML = `
+              <h2>แผงแอดมิน</h2>
+              <input type="password" id="adminPassword" placeholder="กรอกรหัสแอดมิน" />
+              <button onclick="checkAdminPassword()">ยืนยัน</button>
+              <div id="botListContainer"></div>
+              <button onclick="closeAdminPanel()">ปิดแผงแอดมิน</button>
+          `;
+          document.body.appendChild(adminPanel);
+          adminPanel.style.display = 'block'; // แสดงแผงแอดมิน
+      }
+      
+      function closeAdminPanel() {
+          const adminPanel = document.getElementById('adminPanel');
+          if (adminPanel) {
+              adminPanel.style.display = 'none'; // ซ่อนแผงแอดมิน
+          }
+      
+          const adminButton = document.querySelector('.admin-button');
+          if (adminButton) {
+              adminButton.style.display = 'block'; // แสดงปุ่มแอดมิน
+          }
+      }
+      
+      function checkAdminPassword() {
+          const password = document.getElementById('adminPassword').value;
+          if (password === 'mastersiwakon') {
+              showAdminPanelOptions();
+          } else {
+              Swal.fire('รหัสผ่านไม่ถูกต้อง', '', 'error');
+          }
+      }
+      
+      function showAdminPanelOptions() {
+          // ซ่อนช่องกรอกรหัสแอดมิน และปุ่มยืนยัน
+          document.getElementById('adminPassword').style.display = 'none';
+          document.querySelector('button').style.display = 'none';
+      
+          // อัปเดตข้อมูลบอท
+          updateBotDisplay();
+      }
+      
+      function updateBotDisplay() {
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+          const botListContainer = document.getElementById("botListContainer");
+          botListContainer.innerHTML = ""; // เคลียร์ข้อมูลก่อน
+      
+          if (botList.length === 0) {
+              botListContainer.innerHTML = "<p>ไม่มีบอทที่เปิดใช้งานอยู่</p>";
+          }
+      
+          botList.forEach((bot, index) => {
+              const botItem = document.createElement("div");
+              botItem.classList.add("bot-item");
+      
+              // ดึงสถานะบอทจากเซิร์ฟเวอร์
+              fetch(`http://localhost:5000/bot-status?bot=${bot}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      const botStatus = `
+                          <span>ชื่อบอท: ${bot}</span>
+                          <span>ปิง: ${data.ping || 'ไม่สามารถดึงข้อมูลปิงได้'}ms</span>
+                          <span>เวลาใช้งาน: ${data.uptime || 'ไม่สามารถดึงข้อมูลเวลาใช้งานได้'}</span>
+                          <button class="delete-btn" onclick="deleteBot(${index})">ลบบอท</button>
+                      `;
+                      botItem.innerHTML = botStatus;
+                      botListContainer.appendChild(botItem);
+                      if (!data.success) {
+                          Swal.fire('บอทไม่ออนไลน์!', `บอท ${bot} ไม่สามารถออนไลน์ได้`, 'error');
+                      }
+                  })
+                  .catch(err => {
+                      console.log('Error fetching bot status:', err);
+                      const botStatus = `
+                          <span>ชื่อบอท: ${bot}</span>
+                          <span>ปิง: ไม่สามารถดึงข้อมูล</span>
+                          <span>เวลาใช้งาน: ไม่สามารถดึงข้อมูล</span>
+                          <button class="delete-btn" onclick="deleteBot(${index})">ลบบอท</button>
+                      `;
+                      botItem.innerHTML = botStatus;
+                      botListContainer.appendChild(botItem);
+                  });
+          });
+      }
+      
+      function deleteBot(index) {
+          let botList = JSON.parse(localStorage.getItem("botList") || "[]");
+          botList.splice(index, 1);
+          localStorage.setItem("botList", JSON.stringify(botList));
+          updateBotDisplay();
+          fetch('http://localhost:5000/stop-bot', { method: 'POST' })
+              .then(res => res.json())
+              .then(async (data) => {
+                  if (data.success) {
+                      await Swal.fire('บอทของคุณถูกหยุดเรียบร้อย');
+                  } else {
+                      await Swal.fire(data.message);
+                  }
+              });
+      }
+      </script>
+      
+  </body>
+  </html>
+  
